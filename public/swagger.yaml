@@ -1,0 +1,54 @@
+swagger: '2.0'
+
+info:
+  version: "0.0.1"
+  title: flaskmicroservice API
+
+consumes:
+  - text/plain
+
+produces:
+  - application/json
+
+paths:
+  /health:
+    get:
+      operationId: get
+      description: Get health status of Flask server
+      responses:
+        200:
+          description: "Health check response"
+          schema:
+            $ref: "#/definitions/healthResponse"
+          examples:
+            application/json: { "status": "UP"}
+  /api/v1/stocklevels:
+    get:
+      operationId: get
+      description: Get stock levels in our inventory
+      responses:
+        200:
+          description: "Get inventory stock levels"
+          schema:
+            $ref: ""
+          examples:
+            application/json: [{
+                description: "Compatible with select electronic devices; AAA size; DURALOCK Power Preserve technology; 4-pack",
+                image: "http://img.bbystatic.com/BestBuy_US/images/products/4390/43900_sa.jpg",
+                manufacturer: "Duracell",
+                model: "MN2400B4Z",
+                name: "Duracell - AAA Batteries (4-Pack)",
+                price: 5.49,
+                qty: 9,
+                shipping: 5.49,
+                sku: 43900,
+                type: "HardGood",
+                upc: "041333424019",
+                url: "http://www.bestbuy.com/site/duracell-aaa-batteries-4-pack/43900.p?id=1051384074145&skuId=43900&cmp=RMXCC"
+            }]
+definitions:
+  healthResponse:
+    type: "object"
+    properties:
+      status:
+        type: "string"
