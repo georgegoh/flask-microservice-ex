@@ -4,7 +4,7 @@ from flask.json import jsonify
 from flask_pymongo import PyMongo
 
 app = Flask(__name__, template_folder="../public", static_folder="../public", static_url_path='')
-app.config["MONGO_URI"] = os.environ['MONGODB_URI"]
+app.config["MONGO_URI"] = os.environ["MONGODB_URI"]
 mongo = PyMongo(app)
 
 from server.routes import *
