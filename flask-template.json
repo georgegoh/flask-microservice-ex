@@ -1,0 +1,276 @@
+{
+    "kind": "Template",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "flask-template"
+    },
+    "labels": {
+        "createdBy": "flask-template"
+    },
+    "parameters": [
+        {
+            "description": "The name for the flask application.",
+            "displayName": "Application Name",
+            "name": "APPLICATION_NAME",
+            "value": "flask-ms",
+            "required": true
+        },
+        {
+            "description": "Custom hostname for dashboard application.  Leave blank for default hostname, e.g.: <application-name>.<project>.<default-domain-suffix>",
+            "displayName": "Application route",
+            "name": "APPLICATION_HOSTNAME"
+        },
+        {
+            "description": "Git source URI for application",
+            "displayName": "Git source repository",
+            "name": "GIT_URI",
+            "value": "https://github.com/georgegoh/flask-microservice-ex.git",
+            "required": true
+        },
+        {
+            "description": "Git branch/tag reference",
+            "displayName": "Git branch/tag reference",
+            "name": "GIT_REF",
+            "value": "master",
+            "required": true
+        },
+        {
+            "description": "MongoDB Connection String",
+            "displayName": "MongoDB Backend",
+            "name": "MONGODB_URI",
+            "value": "mongodb://support-0.ocp3.lab.spodon.com:27017/test",
+            "required": true
+        },
+        {
+            "description": "Github trigger secret",
+            "displayName": "GitHub Trigger",
+            "name": "GITHUB_TRIGGER_SECRET",
+            "from": "[a-zA-Z0-9]{8}",
+            "generate": "expression",
+            "required": true
+        },
+        {
+            "description": "Generic build trigger secret",
+            "displayName": "Generic Trigger",
+            "name": "GENERIC_TRIGGER_SECRET",
+            "from": "[a-zA-Z0-9]{8}",
+            "generate": "expression",
+            "required": true
+        }
+    ],
+    "objects": [
+        {
+            "kind": "ImageStream",
+            "apiVersion": "image.openshift.io/v1",
+            "metadata": {
+                "name": "${APPLICATION_NAME}",
+                "labels": {
+                    "app": "${APPLICATION_NAME}",
+                    "role": "backend"
+                }
+            },
+            "spec": {
+                "tags": [
+                    {
+                        "name": "latest"
+                    }
+                ]
+            }
+        },
+        {
+            "kind": "BuildConfig",
+            "apiVersion": "build.openshift.io/v1",
+            "metadata": {
+                "labels": {
+                    "app": "${APPLICATION_NAME}",
+                    "build": "${APPLICATION_NAME}",
+                    "role": "backend"
+                },
+                "name": "${APPLICATION_NAME}"
+            },
+            "spec": {
+                "triggers": [
+                    {
+                        "type": "GitHub",
+                        "github": {
+                            "secret": "${GITHUB_TRIGGER_SECRET}"
+                        }
+                    },
+                    {
+                        "type": "Generic",
+                        "generic": {
+                            "secret": "${GENERIC_TRIGGER_SECRET}"
+                        }
+                    },
+                    {
+                        "type": "ConfigChange"
+                    },
+                    {
+                        "type": "ImageChange"
+                    }
+                ],
+                "runPolicy": "Serial",
+                "source": {
+                    "git": {
+                        "uri": "${GIT_URI}",
+                        "ref": "${GIT_REF}"
+                    },
+                    "type": "Git"
+                },
+                "strategy": {
+                    "type": "Source",
+                    "sourceStrategy": {
+                        "from": {
+                            "kind": "ImageStreamTag",
+                            "namespace": "openshift",
+                            "name": "python:3.6"
+                        }
+                    }
+                },
+                "output": {
+                    "to": {
+                        "kind": "ImageStreamTag",
+                        "name": "${APPLICATION_NAME}:latest"
+                    }
+                },
+                "postCommit": {},
+                "resources": {}
+            },
+            "status": {
+                "lastVersion": 4
+            }
+        },
+        {
+            "apiVersion": "apps.openshift.io/v1",
+            "kind": "DeploymentConfig",
+            "metadata": {
+                "labels": {
+                    "app": "${APPLICATION_NAME}"
+                },
+                "name": "${APPLICATION_NAME}"
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {
+                    "app": "${APPLICATION_NAME}",
+                    "deploymentconfig": "${APPLICATION_NAME}"
+                },
+                "strategy": {
+                    "activeDeadlineSeconds": 21600,
+                    "resources": {},
+                    "rollingParams": {
+                        "intervalSeconds": 1,
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%",
+                        "timeoutSeconds": 600,
+                        "updatePeriodSeconds": 1
+                    },
+                    "type": "Rolling"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app": "${APPLICATION_NAME}",
+                            "deploymentconfig": "${APPLICATION_NAME}"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "env": [
+                                    {
+                                        "name": "MONGODB_URI",
+                                        "value": "${MONGODB_URI}"
+                                    }
+                                ],
+                                "image": "${APPLICATION_NAME}",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "${APPLICATION_NAME}",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {},
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File"
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {},
+                        "terminationGracePeriodSeconds": 30
+                    }
+                },
+                "test": false,
+                "triggers": [
+                    {
+                        "type": "ConfigChange"
+                    },
+                    {
+                        "type": "ImageChange",
+                        "imageChangeParams": {
+                            "automatic": true,
+                            "containerNames": [
+                                "${APPLICATION_NAME}"
+                            ],
+                            "from": {
+                                "kind": "ImageStreamTag",
+                                "name": "${APPLICATION_NAME}:latest"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "kind": "Service",
+            "apiVersion": "v1",
+            "metadata": {
+                "labels": {
+                    "app": "${APPLICATION_NAME}"
+                },
+                "name": "${APPLICATION_NAME}"
+            },
+            "spec": {
+                "ports": [
+                    {
+                        "name": "8080-tcp",
+                        "port": 8080,
+                        "protocol": "TCP",
+                        "targetPort": 8080
+                    }
+                ],
+                "selector": {
+                    "app": "${APPLICATION_NAME}",
+                    "deploymentconfig": "${APPLICATION_NAME}"
+                },
+                "type": "ClusterIP",
+                "sessionAffinity": "None"
+            }
+        },
+        {
+            "kind": "Route",
+            "apiVersion": "route.openshift.io/v1",
+            "metadata": {
+                "labels": {
+                    "app": "${APPLICATION_NAME}"
+                },
+                "name": "${APPLICATION_NAME}"
+            },
+            "spec": {
+                "host": "${APPLICATION_HOSTNAME}",
+                "to": {
+                    "kind": "Service",
+                    "name": "${APPLICATION_NAME}",
+                    "weight": 100
+                },
+                "port": {
+                    "targetPort": "8080-tcp"
+                }
+            }
+        }
+    ]
+}
